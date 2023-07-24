@@ -1,0 +1,12 @@
+{
+  "cmake.buildDirectory": "${workspaceFolder}/cpp/build",
+  "cmake.configureOnOpen": true,
+  "cmake.installPrefix": "${workspaceFolder}/dotnet/Cloudsume.Native",
+  "cmake.sourceDirectory": "${workspaceFolder}/cpp",
+  "editor.formatOnType": true,
+  "editor.rulers": [160],
+  "files.insertFinalNewline": true,
+  "files.trimFinalNewlines": true,
+  "files.trimTrailingWhitespace": true,
+  "omnisharp.enableRoslynAnalyzers": true
+}

@@ -1,0 +1,4 @@
+/cpp/build/
+/dotnet/Cloudsume.Native/libcsm.so
+bin/
+obj/

@@ -1,0 +1,52 @@
+﻿
+Microsoft Visual Studio Solution File, Format Version 12.00
+# Visual Studio Version 16
+VisualStudioVersion = 16.0.30114.105
+MinimumVisualStudioVersion = 10.0.40219.1
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "Cloudsume.Services", "Cloudsume.Services\Cloudsume.Services.csproj", "{96242C3A-590B-43B3-A55B-8AFD4EE293EB}"
+EndProject
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "Cloudsume.Services.Tests", "Cloudsume.Services.Tests\Cloudsume.Services.Tests.csproj", "{8E62F7B1-CC64-4DB4-98EB-983A3D77AE21}"
+EndProject
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "Ultima.Extensions.OS", "Ultima.Extensions.OS\Ultima.Extensions.OS.csproj", "{C2F80606-D547-4658-8DA0-22CD4103CF10}"
+EndProject
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "Ultima.Extensions.OS.Tests", "Ultima.Extensions.OS.Tests\Ultima.Extensions.OS.Tests.csproj", "{5BF6151C-C19B-451B-B0B1-009B7BF2555E}"
+EndProject
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "Cloudsume.Native", "Cloudsume.Native\Cloudsume.Native.csproj", "{0FAF00FF-6C1A-4D6A-B21B-A3AFC4698CE0}"
+EndProject
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "Cloudsume.Native.Tests", "Cloudsume.Native.Tests\Cloudsume.Native.Tests.csproj", "{BC809814-54C7-48A1-BA46-08DAA7B75BA4}"
+EndProject
+Global
+	GlobalSection(SolutionConfigurationPlatforms) = preSolution
+		Debug|Any CPU = Debug|Any CPU
+		Release|Any CPU = Release|Any CPU
+	EndGlobalSection
+	GlobalSection(SolutionProperties) = preSolution
+		HideSolutionNode = FALSE
+	EndGlobalSection
+	GlobalSection(ProjectConfigurationPlatforms) = postSolution
+		{96242C3A-590B-43B3-A55B-8AFD4EE293EB}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{96242C3A-590B-43B3-A55B-8AFD4EE293EB}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{96242C3A-590B-43B3-A55B-8AFD4EE293EB}.Release|Any CPU.ActiveCfg = Release|Any CPU
+		{96242C3A-590B-43B3-A55B-8AFD4EE293EB}.Release|Any CPU.Build.0 = Release|Any CPU
+		{8E62F7B1-CC64-4DB4-98EB-983A3D77AE21}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{8E62F7B1-CC64-4DB4-98EB-983A3D77AE21}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{8E62F7B1-CC64-4DB4-98EB-983A3D77AE21}.Release|Any CPU.ActiveCfg = Release|Any CPU
+		{8E62F7B1-CC64-4DB4-98EB-983A3D77AE21}.Release|Any CPU.Build.0 = Release|Any CPU
+		{C2F80606-D547-4658-8DA0-22CD4103CF10}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{C2F80606-D547-4658-8DA0-22CD4103CF10}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{C2F80606-D547-4658-8DA0-22CD4103CF10}.Release|Any CPU.ActiveCfg = Release|Any CPU
+		{C2F80606-D547-4658-8DA0-22CD4103CF10}.Release|Any CPU.Build.0 = Release|Any CPU
+		{5BF6151C-C19B-451B-B0B1-009B7BF2555E}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{5BF6151C-C19B-451B-B0B1-009B7BF2555E}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{5BF6151C-C19B-451B-B0B1-009B7BF2555E}.Release|Any CPU.ActiveCfg = Release|Any CPU
+		{5BF6151C-C19B-451B-B0B1-009B7BF2555E}.Release|Any CPU.Build.0 = Release|Any CPU
+		{0FAF00FF-6C1A-4D6A-B21B-A3AFC4698CE0}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{0FAF00FF-6C1A-4D6A-B21B-A3AFC4698CE0}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{0FAF00FF-6C1A-4D6A-B21B-A3AFC4698CE0}.Release|Any CPU.ActiveCfg = Release|Any CPU
+		{0FAF00FF-6C1A-4D6A-B21B-A3AFC4698CE0}.Release|Any CPU.Build.0 = Release|Any CPU
+		{BC809814-54C7-48A1-BA46-08DAA7B75BA4}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{BC809814-54C7-48A1-BA46-08DAA7B75BA4}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{BC809814-54C7-48A1-BA46-08DAA7B75BA4}.Release|Any CPU.ActiveCfg = Release|Any CPU
+		{BC809814-54C7-48A1-BA46-08DAA7B75BA4}.Release|Any CPU.Build.0 = Release|Any CPU
+	EndGlobalSection
+EndGlobal
