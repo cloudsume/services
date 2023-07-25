@@ -1,0 +1,218 @@
+name: CI
+on:
+  push:
+    branches:
+    - main
+    tags:
+    - '*'
+  pull_request:
+    branches:
+    - main
+jobs:
+  build:
+    name: Build
+    runs-on: ubuntu-22.04
+    outputs:
+      region: ${{ steps.deploy-conf.outputs.region }}
+      deployer: ${{ steps.deploy-conf.outputs.deployer }}
+      services-task: ${{ steps.deploy-conf.outputs.services-task }}
+      services-cpu: ${{ steps.deploy-conf.outputs.services-cpu }}
+      services-memory: ${{ steps.deploy-conf.outputs.services-memory }}
+      services-env: ${{ steps.deploy-conf.outputs.services-env }}
+      services-svc: ${{ steps.deploy-conf.outputs.services-svc }}
+      log-group: ${{ steps.deploy-conf.outputs.log-group }}
+      cluster: ${{ steps.deploy-conf.outputs.cluster }}
+    container: mcr.microsoft.com/dotnet/sdk:6.0
+    steps:
+    - name: Checkout source
+      uses: actions/checkout@v3
+    - name: Install system packages
+      run: |
+        apt-get update
+        apt-get install -y cmake g++ libpoppler-private-dev
+    - name: Configure native library
+      run: cmake -D CMAKE_BUILD_TYPE=Release -S cpp -B cpp/build
+    - name: Build native library
+      run: cmake --build cpp/build
+    - name: Install native library
+      run: cmake --install cpp/build --prefix dotnet/Cloudsume.Native
+    - name: Build Cloudsume Services
+      run: dotnet build -c Release dotnet/Cloudsume.sln
+    - name: Run tests
+      run: dotnet test -c Release --no-build dotnet/Cloudsume.sln
+    - name: Export Cloudsume Services
+      run: dotnet publish -c Release --no-build -o dist/services dotnet/Cloudsume.Services
+    - name: Export Docker assets
+      run: |
+        mkdir -pv dist/docker/services
+
+        cp -v dotnet/Cloudsume.Services/Dockerfile dist/docker/services
+    - name: Upload Cloudsume Services
+      uses: actions/upload-artifact@v3
+      with:
+        name: services
+        path: dist/services
+    - name: Upload Docker assets
+      uses: actions/upload-artifact@v3
+      with:
+        name: docker
+        path: dist/docker
+    - name: Generate deployment configurations
+      run: |
+        my %conf;
+
+        if ($ENV{GITHUB_REF} =~ /^refs\/tags\//) {
+          %conf = (
+            'region' => 'us-west-2',
+            'deployer' => '${{ secrets.AWS_IAM_DEPLOYER_PRODUCTION }}',
+            'services-task' => 'csm-services-prod',
+            'services-cpu' => '1 vCPU',
+            'services-memory' => '2 GB',
+            'services-env' => 'Production',
+            'services-svc' => 'services',
+            'log-group' => 'csm-prod',
+            'cluster' => 'csm'
+          );
+        } else {
+          %conf = (
+            'region' => 'ap-southeast-1',
+            'deployer' => '${{ secrets.AWS_IAM_DEPLOYER_STAGING }}',
+            'services-task' => 'csm-services-dev',
+            'services-cpu' => '.25 vCPU',
+            'services-memory' => '0.5 GB',
+            'services-env' => 'Staging',
+            'services-svc' => 'csm-services',
+            'log-group' => 'csm-dev',
+            'cluster' => 'development'
+          );
+        }
+
+        open(my $output, '>>', $ENV{GITHUB_OUTPUT}) || die "Cannot open GITHUB_OUTPUT: $!";
+
+        while (my ($name, $value) = each %conf) {
+          print $output "${name}=${value}\n";
+        }
+
+        close($output);
+      shell: perl {0}
+      id: deploy-conf
+      if: github.event_name == 'push'
+  publish:
+    name: Publish
+    runs-on: ubuntu-22.04
+    outputs:
+      services-image: ${{ steps.image-tags.outputs.services }}
+    permissions:
+      packages: write
+      contents: read
+    needs: build
+    if: github.event_name == 'push'
+    steps:
+    - name: Download Services
+      uses: actions/download-artifact@v3
+      with:
+        name: services
+        path: services
+    - name: Download Docker assets
+      uses: actions/download-artifact@v3
+      with:
+        name: docker
+        path: docker
+    - name: Generate image tags
+      run: |
+        my $registry = 'ghcr.io/cloudsume';
+        my ($branch) = $ENV{GITHUB_REF} =~ /\/([^\/]+)$/;
+        my %tags = (
+          services => "$registry/services:$branch"
+        );
+
+        open(my $output, '>>', $ENV{GITHUB_OUTPUT}) || die "Cannot open GITHUB_OUTPUT: $!";
+
+        while (my ($name, $tag) = each %tags) {
+          print $output "${name}=${tag}\n";
+        }
+
+        close($output);
+      shell: perl {0}
+      id: image-tags
+    - name: Build Services
+      run: |
+        tag="${{ steps.image-tags.outputs.services }}"
+        src="org.opencontainers.image.source=https://github.com/cloudsume/services"
+        lic="org.opencontainers.image.licenses=AGPL-3.0-or-later"
+        des="org.opencontainers.image.description=Services required by Cloudsumé Server"
+
+        docker build -t "$tag" --label "$src" --label "$lic" --label "$des" -f docker/services/Dockerfile services
+    - name: Push Services
+      run: docker push "${{ steps.image-tags.outputs.services }}"
+  deploy:
+    name: Deploy
+    runs-on: ubuntu-22.04
+    permissions:
+      id-token: write
+      contents: read
+    needs: [build, publish]
+    if: github.event_name == 'push'
+    steps:
+    - name: Configure AWS Credentials
+      uses: aws-actions/configure-aws-credentials@v2
+      with:
+        role-to-assume: ${{ needs.build.outputs.deployer }}
+        aws-region: ${{ needs.build.outputs.region }}
+    - name: Generate ECS tasks
+      run: |
+        import json
+        import os
+
+        services = {
+          'family': '${{ needs.build.outputs.services-task }}',
+          'requiresCompatibilities': ['FARGATE'],
+          'executionRoleArn': '${{ secrets.AWS_IAM_ECS_EXECUTION }}',
+          'networkMode': 'awsvpc',
+          'cpu': '${{ needs.build.outputs.services-cpu }}',
+          'memory': '${{ needs.build.outputs.services-memory }}',
+          'containerDefinitions': [
+            {
+              'name': 'services',
+              'image': '${{ needs.publish.outputs.services-image }}',
+              'portMappings': [
+                {
+                  'containerPort': 80
+                }
+              ],
+              'healthCheck': {
+                'command': ['CMD-SHELL', 'curl --fail http://localhost/health || exit']
+              },
+              'environment': [
+                {
+                  'name': 'ASPNETCORE_URLS',
+                  'value': 'http://*'
+                },
+                {
+                  'name': 'ASPNETCORE_ENVIRONMENT',
+                  'value': '${{ needs.build.outputs.services-env }}'
+                }
+              ],
+              'logConfiguration': {
+                'logDriver': 'awslogs',
+                'options': {
+                  'awslogs-region': '${{ needs.build.outputs.region }}',
+                  'awslogs-group': '${{ needs.build.outputs.log-group }}',
+                  'awslogs-stream-prefix': 'services',
+                  'awslogs-multiline-pattern': '^(trce|dbug|info|warn|fail|crit)\\: [\\w\\.]+\\[\\d+\\]',
+                  'mode': 'non-blocking'
+                }
+              }
+            }
+          ]
+        }
+
+        with open('services.json', mode='w') as fp:
+          json.dump(services, fp, ensure_ascii=False, indent=2)
+      shell: python
+    - name: Deploy Cloudsume Services
+      uses: aws-actions/amazon-ecs-deploy-task-definition@v1
+      with:
+        task-definition: services.json
+        service: ${{ needs.build.outputs.services-svc }}
+        cluster: ${{ needs.build.outputs.cluster }}
