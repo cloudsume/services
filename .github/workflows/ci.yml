@@ -12,16 +12,6 @@ jobs:
   build:
     name: Build
     runs-on: ubuntu-22.04
-    outputs:
-      region: ${{ steps.deploy-conf.outputs.region }}
-      deployer: ${{ steps.deploy-conf.outputs.deployer }}
-      services-task: ${{ steps.deploy-conf.outputs.services-task }}
-      services-cpu: ${{ steps.deploy-conf.outputs.services-cpu }}
-      services-memory: ${{ steps.deploy-conf.outputs.services-memory }}
-      services-env: ${{ steps.deploy-conf.outputs.services-env }}
-      services-svc: ${{ steps.deploy-conf.outputs.services-svc }}
-      log-group: ${{ steps.deploy-conf.outputs.log-group }}
-      cluster: ${{ steps.deploy-conf.outputs.cluster }}
     container: mcr.microsoft.com/dotnet/sdk:6.0
     steps:
     - name: Checkout source
@@ -57,46 +47,6 @@ jobs:
       with:
         name: docker
         path: dist/docker
-    - name: Generate deployment configurations
-      run: |
-        my %conf;
-
-        if ($ENV{GITHUB_REF} =~ /^refs\/tags\//) {
-          %conf = (
-            'region' => 'us-west-2',
-            'deployer' => '${{ secrets.AWS_IAM_DEPLOYER_PRODUCTION }}',
-            'services-task' => 'csm-services-prod',
-            'services-cpu' => '1 vCPU',
-            'services-memory' => '2 GB',
-            'services-env' => 'Production',
-            'services-svc' => 'services',
-            'log-group' => 'csm-prod',
-            'cluster' => 'csm'
-          );
-        } else {
-          %conf = (
-            'region' => 'ap-southeast-1',
-            'deployer' => '${{ secrets.AWS_IAM_DEPLOYER_STAGING }}',
-            'services-task' => 'csm-services-dev',
-            'services-cpu' => '.25 vCPU',
-            'services-memory' => '0.5 GB',
-            'services-env' => 'Staging',
-            'services-svc' => 'csm-services',
-            'log-group' => 'csm-dev',
-            'cluster' => 'development'
-          );
-        }
-
-        open(my $output, '>>', $ENV{GITHUB_OUTPUT}) || die "Cannot open GITHUB_OUTPUT: $!";
-
-        while (my ($name, $value) = each %conf) {
-          print $output "${name}=${value}\n";
-        }
-
-        close($output);
-      shell: perl {0}
-      id: deploy-conf
-      if: github.event_name == 'push'
   publish:
     name: Publish
     runs-on: ubuntu-22.04
@@ -157,26 +107,65 @@ jobs:
     permissions:
       id-token: write
       contents: read
-    needs: [build, publish]
+    needs: publish
     if: github.event_name == 'push'
     steps:
+    - name: Generate deployment configurations
+      run: |
+        my %conf;
+
+        if ($ENV{GITHUB_REF} =~ /^refs\/tags\//) {
+          %conf = (
+            'region' => 'us-west-2',
+            'deployer' => '${{ secrets.AWS_IAM_DEPLOYER_PRODUCTION }}',
+            'services-task' => 'csm-services-prod',
+            'services-cpu' => '1 vCPU',
+            'services-memory' => '2 GB',
+            'services-env' => 'Production',
+            'services-svc' => 'services',
+            'log-group' => 'csm-prod',
+            'cluster' => 'csm'
+          );
+        } else {
+          %conf = (
+            'region' => 'ap-southeast-1',
+            'deployer' => '${{ secrets.AWS_IAM_DEPLOYER_STAGING }}',
+            'services-task' => 'csm-services-dev',
+            'services-cpu' => '.25 vCPU',
+            'services-memory' => '0.5 GB',
+            'services-env' => 'Staging',
+            'services-svc' => 'csm-services',
+            'log-group' => 'csm-dev',
+            'cluster' => 'development'
+          );
+        }
+
+        open(my $output, '>>', $ENV{GITHUB_OUTPUT}) || die "Cannot open GITHUB_OUTPUT: $!";
+
+        while (my ($name, $value) = each %conf) {
+          print $output "${name}=${value}\n";
+        }
+
+        close($output);
+      shell: perl {0}
+      id: conf
     - name: Configure AWS Credentials
       uses: aws-actions/configure-aws-credentials@v2
       with:
-        role-to-assume: ${{ needs.build.outputs.deployer }}
-        aws-region: ${{ needs.build.outputs.region }}
+        role-to-assume: ${{ steps.conf.outputs.deployer }}
+        aws-region: ${{ steps.conf.outputs.region }}
     - name: Generate ECS tasks
       run: |
         import json
         import os
 
         services = {
-          'family': '${{ needs.build.outputs.services-task }}',
+          'family': '${{ steps.conf.outputs.services-task }}',
           'requiresCompatibilities': ['FARGATE'],
           'executionRoleArn': '${{ secrets.AWS_IAM_ECS_EXECUTION }}',
           'networkMode': 'awsvpc',
-          'cpu': '${{ needs.build.outputs.services-cpu }}',
-          'memory': '${{ needs.build.outputs.services-memory }}',
+          'cpu': '${{ steps.conf.outputs.services-cpu }}',
+          'memory': '${{ steps.conf.outputs.services-memory }}',
           'containerDefinitions': [
             {
               'name': 'services',
@@ -196,14 +185,14 @@ jobs:
                 },
                 {
                   'name': 'ASPNETCORE_ENVIRONMENT',
-                  'value': '${{ needs.build.outputs.services-env }}'
+                  'value': '${{ steps.conf.outputs.services-env }}'
                 }
               ],
               'logConfiguration': {
                 'logDriver': 'awslogs',
                 'options': {
-                  'awslogs-region': '${{ needs.build.outputs.region }}',
-                  'awslogs-group': '${{ needs.build.outputs.log-group }}',
+                  'awslogs-region': '${{ steps.conf.outputs.region }}',
+                  'awslogs-group': '${{ steps.conf.outputs.log-group }}',
                   'awslogs-stream-prefix': 'services',
                   'awslogs-multiline-pattern': '^(trce|dbug|info|warn|fail|crit)\\: [\\w\\.]+\\[\\d+\\]',
                   'mode': 'non-blocking'
@@ -220,5 +209,5 @@ jobs:
       uses: aws-actions/amazon-ecs-deploy-task-definition@v1
       with:
         task-definition: services.json
-        service: ${{ needs.build.outputs.services-svc }}
-        cluster: ${{ needs.build.outputs.cluster }}
+        service: ${{ steps.conf.outputs.services-svc }}
+        cluster: ${{ steps.conf.outputs.cluster }}
